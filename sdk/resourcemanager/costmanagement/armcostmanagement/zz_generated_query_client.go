@@ -91,6 +91,12 @@ func (client *QueryClient) usageCreateRequest(ctx context.Context, scope string,
 	}
 	reqQP := req.Raw().URL.Query()
 	reqQP.Set("api-version", "2021-10-01")
+	if options != nil && options.Skiptoken != nil {
+		reqQP.Set("$skiptoken", *options.Skiptoken)
+	}
+	if options != nil && options.Top != nil {
+		reqQP.Set("$top", strconv.FormatInt(int64(*options.Top), 10))
+	}
 	req.Raw().URL.RawQuery = reqQP.Encode()
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, runtime.MarshalAsJSON(req, parameters)

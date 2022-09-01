@@ -851,7 +851,12 @@ type QueryClientUsageByExternalCloudProviderTypeOptions struct {
 
 // QueryClientUsageOptions contains the optional parameters for the QueryClient.Usage method.
 type QueryClientUsageOptions struct {
-	// placeholder for future optional parameters
+	// Skiptoken is only used if a previous operation returned a partial result. If a previous response contains a nextLink element,
+	// the value of the nextLink element will include a skiptoken parameter that
+	// specifies a starting point to use for subsequent calls.
+	Skiptoken *string
+	// May be used to limit the number of results to the most recent N dimension data.
+	Top *int32
 }
 
 // QueryColumn properties
