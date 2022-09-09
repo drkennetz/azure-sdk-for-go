@@ -18,14 +18,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/streaming"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/blob"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/bloberror"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/blockblob"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/container"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/internal/testcommon"
+	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/sas"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/service"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -749,7 +750,7 @@ func (s *BlockBlobRecordedTestsSuite) TestBlobPutBlobIfMatchFalse() {
 	content := make([]byte, 0)
 	body := bytes.NewReader(content)
 
-	ifMatch := "garbage"
+	ifMatch := azcore.ETag("garbage")
 	uploadBlockBlobOptions := blockblob.UploadOptions{
 		AccessConditions: &blob.AccessConditions{
 			ModifiedAccessConditions: &blob.ModifiedAccessConditions{
@@ -782,7 +783,7 @@ func (s *BlockBlobRecordedTestsSuite) TestBlobPutBlobIfNoneMatchTrue() {
 	body := bytes.NewReader(content)
 	rsc := streaming.NopCloser(body)
 
-	ifNoneMatch := "garbage"
+	ifNoneMatch := azcore.ETag("garbage")
 	uploadBlockBlobOptions := blockblob.UploadOptions{
 		AccessConditions: &blob.AccessConditions{
 			ModifiedAccessConditions: &blob.ModifiedAccessConditions{
@@ -980,7 +981,7 @@ func (s *BlockBlobRecordedTestsSuite) TestBlobPutBlockListIfMatchFalse() {
 	_, err := bbClient.CommitBlockList(context.Background(), blockIDs, nil) // The bbClient must actually exist to have a modifed time
 	_require.Nil(err)
 
-	eTag := "garbage"
+	eTag := azcore.ETag("garbage")
 	commitBlockListOptions := blockblob.CommitBlockListOptions{
 		AccessConditions: &blob.AccessConditions{ModifiedAccessConditions: &blob.ModifiedAccessConditions{IfMatch: &eTag}},
 	}
@@ -998,7 +999,7 @@ func (s *BlockBlobRecordedTestsSuite) TestBlobPutBlockListIfNoneMatchTrue() {
 	_, err := bbClient.CommitBlockList(context.Background(), blockIDs, nil) // The bbClient must actually exist to have a modifed time
 	_require.Nil(err)
 
-	eTag := "garbage"
+	eTag := azcore.ETag("garbage")
 	commitBlockListOptions := blockblob.CommitBlockListOptions{
 		AccessConditions: &blob.AccessConditions{ModifiedAccessConditions: &blob.ModifiedAccessConditions{IfNoneMatch: &eTag}},
 	}
@@ -1159,16 +1160,16 @@ func (s *BlockBlobUnrecordedTestsSuite) TestSetTierOnCopyBlockBlobFromURL() {
 	if err != nil {
 		s.T().Fatal("Couldn't fetch credential because " + err.Error())
 	}
-	sasQueryParams, err := service.SASSignatureValues{
-		Protocol:      service.SASProtocolHTTPS,
+	sasQueryParams, err := sas.AccountSignatureValues{
+		Protocol:      sas.ProtocolHTTPS,
 		ExpiryTime:    expiryTime,
-		Permissions:   to.Ptr(service.SASPermissions{Read: true, List: true}).String(),
-		Services:      to.Ptr(service.SASServices{Blob: true}).String(),
-		ResourceTypes: to.Ptr(service.SASResourceTypes{Container: true, Object: true}).String(),
+		Permissions:   to.Ptr(sas.AccountPermissions{Read: true, List: true}).String(),
+		Services:      to.Ptr(sas.AccountServices{Blob: true}).String(),
+		ResourceTypes: to.Ptr(sas.AccountResourceTypes{Container: true, Object: true}).String(),
 	}.Sign(credential)
 	_require.Nil(err)
 
-	srcBlobParts, _ := azblob.ParseURL(srcBlob.URL())
+	srcBlobParts, _ := blob.ParseURL(srcBlob.URL())
 	srcBlobParts.SAS = sasQueryParams
 	srcBlobURLWithSAS := srcBlobParts.String()
 
@@ -1708,7 +1709,7 @@ func (s *BlockBlobRecordedTestsSuite) TestDeleteSpecificBlobVersion() {
 	}
 
 	listPager := containerClient.NewListBlobsFlatPager(&container.ListBlobsFlatOptions{
-		Include: []container.ListBlobsIncludeItem{container.ListBlobsIncludeItemVersions},
+		Include: container.ListBlobsInclude{Versions: true},
 	})
 
 	found := make([]*container.BlobItem, 0)
@@ -1732,7 +1733,7 @@ func (s *BlockBlobRecordedTestsSuite) TestDeleteSpecificBlobVersion() {
 	}
 
 	listPager = containerClient.NewListBlobsFlatPager(&container.ListBlobsFlatOptions{
-		Include: []container.ListBlobsIncludeItem{container.ListBlobsIncludeItemVersions},
+		Include: container.ListBlobsInclude{Versions: true},
 	})
 
 	found = make([]*container.BlobItem, 0)
@@ -1821,7 +1822,7 @@ func (s *BlockBlobUnrecordedTestsSuite) TestCreateBlockBlobReturnsVID() {
 	_require.NotNil(csResp.VersionID)
 
 	pager := containerClient.NewListBlobsFlatPager(&container.ListBlobsFlatOptions{
-		Include: []container.ListBlobsIncludeItem{container.ListBlobsIncludeItemSnapshots},
+		Include: container.ListBlobsInclude{Snapshots: true},
 	})
 
 	found := make([]*container.BlobItem, 0)
@@ -1841,7 +1842,7 @@ func (s *BlockBlobUnrecordedTestsSuite) TestCreateBlockBlobReturnsVID() {
 	//_require.Equal(deleteResp.RawResponse.StatusCode, 202)
 
 	pager = containerClient.NewListBlobsFlatPager(&container.ListBlobsFlatOptions{
-		Include: []container.ListBlobsIncludeItem{container.ListBlobsIncludeItemSnapshots, container.ListBlobsIncludeItemVersions},
+		Include: container.ListBlobsInclude{Snapshots: true, Versions: true},
 	})
 
 	found = make([]*container.BlobItem, 0)
@@ -2464,9 +2465,8 @@ func (s *BlockBlobUnrecordedTestsSuite) TestListBlobReturnsTags() {
 	_require.Nil(err)
 	// _require.Equal(resp.RawResponse.StatusCode,204)
 
-	include := []container.ListBlobsIncludeItem{container.ListBlobsIncludeItemTags}
 	pager := containerClient.NewListBlobsFlatPager(&container.ListBlobsFlatOptions{
-		Include: include,
+		Include: container.ListBlobsInclude{Tags: true},
 	})
 
 	found := make([]*container.BlobItem, 0)
